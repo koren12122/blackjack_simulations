@@ -26,19 +26,17 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd github_simulation
           pip install -r requirements.txt
 
       - name: Run Monte Carlo Worker 0
         run: |
-          cd github_simulation
           python run_monte_carlo.py --worker-id 0 --total-hands ${{ inputs.total_hands || '3500000' }} --output-dir results
 
       - name: Upload worker 0 results
         uses: actions/upload-artifact@v4
         with:
           name: mc-worker-0
-          path: github_simulation/results/mc_worker_0.pkl
+          path: results/mc_worker_0.pkl
           retention-days: 1
 
   worker-1:
@@ -54,19 +52,17 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd github_simulation
           pip install -r requirements.txt
 
       - name: Run Monte Carlo Worker 1
         run: |
-          cd github_simulation
           python run_monte_carlo.py --worker-id 1 --total-hands ${{ inputs.total_hands || '3500000' }} --output-dir results
 
       - name: Upload worker 1 results
         uses: actions/upload-artifact@v4
         with:
           name: mc-worker-1
-          path: github_simulation/results/mc_worker_1.pkl
+          path: results/mc_worker_1.pkl
           retention-days: 1
 
   worker-2:
@@ -82,19 +78,17 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd github_simulation
           pip install -r requirements.txt
 
       - name: Run Monte Carlo Worker 2
         run: |
-          cd github_simulation
           python run_monte_carlo.py --worker-id 2 --total-hands ${{ inputs.total_hands || '3500000' }} --output-dir results
 
       - name: Upload worker 2 results
         uses: actions/upload-artifact@v4
         with:
           name: mc-worker-2
-          path: github_simulation/results/mc_worker_2.pkl
+          path: results/mc_worker_2.pkl
           retention-days: 1
 
   worker-3:
@@ -110,19 +104,17 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd github_simulation
           pip install -r requirements.txt
 
       - name: Run Monte Carlo Worker 3
         run: |
-          cd github_simulation
           python run_monte_carlo.py --worker-id 3 --total-hands ${{ inputs.total_hands || '3500000' }} --output-dir results
 
       - name: Upload worker 3 results
         uses: actions/upload-artifact@v4
         with:
           name: mc-worker-3
-          path: github_simulation/results/mc_worker_3.pkl
+          path: results/mc_worker_3.pkl
           retention-days: 1
 
   merge:
@@ -139,36 +131,34 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd github_simulation
           pip install -r requirements.txt
 
       - name: Download worker 0 artifact
         uses: actions/download-artifact@v4
         with:
           name: mc-worker-0
-          path: github_simulation/results
+          path: results
 
       - name: Download worker 1 artifact
         uses: actions/download-artifact@v4
         with:
           name: mc-worker-1
-          path: github_simulation/results
+          path: results
 
       - name: Download worker 2 artifact
         uses: actions/download-artifact@v4
         with:
           name: mc-worker-2
-          path: github_simulation/results
+          path: results
 
       - name: Download worker 3 artifact
         uses: actions/download-artifact@v4
         with:
           name: mc-worker-3
-          path: github_simulation/results
+          path: results
 
       - name: Merge results
         run: |
-          cd github_simulation
           python merge_results.py \
             --input-dir results \
             --output results/mc_ev_combined.pkl
@@ -177,7 +167,7 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add github_simulation/results/mc_ev_combined.pkl
-          git add github_simulation/results/mc_ev_combined_ev_table.pkl
+          git add results/mc_ev_combined.pkl
+          git add results/mc_ev_combined_ev_table.pkl
           git diff --staged --quiet || git commit -m "Add Monte Carlo simulation results (combined from 4 workers)"
           git push

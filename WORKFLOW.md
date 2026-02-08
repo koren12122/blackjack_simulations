@@ -65,13 +65,11 @@ To test locally before pushing:
 
 ### Monte Carlo (single worker, reduced size)
 ```bash
-cd github_simulation
 python run_monte_carlo.py --worker-id 0 --total-hands 100000 --output-dir test_results
 ```
 
 ### DQN (reduced parameters)
 ```bash
-cd github_simulation
 python run_dqn.py --timesteps 100000 --eval-hands 10000 --output-dir test_results
 ```
 

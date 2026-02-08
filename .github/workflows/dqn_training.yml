@@ -31,12 +31,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd github_simulation
           pip install -r requirements.txt
 
       - name: Run DQN Training
         run: |
-          cd github_simulation
           python run_dqn.py \
             --timesteps ${{ inputs.timesteps || '2000000' }} \
             --eval-hands ${{ inputs.eval_hands || '300000' }} \
@@ -46,21 +44,21 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dqn-model
-          path: github_simulation/results/dqn_blackjack_counter.zip
+          path: results/dqn_blackjack_counter.zip
           retention-days: 30
 
       - name: Upload evaluation results
         uses: actions/upload-artifact@v4
         with:
           name: dqn-eval-results
-          path: github_simulation/results/dqn_eval_results.pkl
+          path: results/dqn_eval_results.pkl
           retention-days: 30
 
       - name: Commit and push results
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add github_simulation/results/dqn_blackjack_counter.zip
-          git add github_simulation/results/dqn_eval_results.pkl
+          git add results/dqn_blackjack_counter.zip
+          git add results/dqn_eval_results.pkl
           git diff --staged --quiet || git commit -m "Add DQN training results (weekly run)"
           git push
