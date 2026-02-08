@@ -12,6 +12,9 @@ on:
         default: '3500000'
         type: string
 
+permissions:
+  contents: write
+
 jobs:
   worker-0:
     runs-on: ubuntu-latest

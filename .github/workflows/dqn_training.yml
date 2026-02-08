@@ -17,6 +17,9 @@ on:
         default: '300000'
         type: string
 
+permissions:
+  contents: write
+
 jobs:
   dqn-training:
     runs-on: ubuntu-latest
