@@ -92,27 +92,39 @@ def merge_dqn_results(existing_path: str, new_buckets: dict) -> dict:
 # Main
 # ─────────────────────────────────────────────
 
-def run_dqn(timesteps: int, eval_hands: int, output_dir: str):
+def run_dqn(timesteps: int, eval_hands: int, output_dir: str, checkpoint: str = None):
     env = CardCountingBlackjackEnv(rules=RULES)
 
     print("Starting DQN training...")
     print(f"Rules: {RULES}")
     print(f"Timesteps: {timesteps:,}")
-    print(f"Eval hands: {eval_hands:,}\n")
+    print(f"Eval hands: {eval_hands:,}")
+    if checkpoint:
+        print(f"Checkpoint: {checkpoint}")
+    print()
 
     # ── Train ──
-    policy_kwargs = dict(net_arch=[256, 256])
-    model = DQN(
-        "MlpPolicy",
-        env,
-        verbose=0,
-        buffer_size=50_000,
-        learning_starts=1000,
-        exploration_fraction=0.2,
-        target_update_interval=250,
-        learning_rate=0.0005,
-        device="auto",
-    )
+    if checkpoint and os.path.exists(checkpoint):
+        print(f"Loading checkpoint from {checkpoint}...")
+        model = DQN.load(checkpoint, env=env, device="auto")
+        print("Checkpoint loaded successfully.")
+        print("Continuing training...\n")
+    else:
+        if checkpoint:
+            print(f"Warning: Checkpoint {checkpoint} not found. Training from scratch.\n")
+        policy_kwargs = dict(net_arch=[256, 256])
+        model = DQN(
+            "MlpPolicy",
+            env,
+            verbose=0,
+            buffer_size=50_000,
+            learning_starts=1000,
+            exploration_fraction=0.2,
+            target_update_interval=250,
+            learning_rate=0.0005,
+            device="auto",
+        )
+    
     model.learn(total_timesteps=timesteps)
     print("Training finished.\n")
 
@@ -194,6 +206,8 @@ if __name__ == "__main__":
                         help=f"Evaluation hands (default: {DEFAULT_EVAL_HANDS:,})")
     parser.add_argument("--output-dir", type=str, default="results",
                         help="Directory to save results (default: results)")
+    parser.add_argument("--checkpoint", type=str, default=None,
+                        help="Path to checkpoint model to continue training from")
     args = parser.parse_args()
 
-    run_dqn(args.timesteps, args.eval_hands, args.output_dir)
+    run_dqn(args.timesteps, args.eval_hands, args.output_dir, args.checkpoint)

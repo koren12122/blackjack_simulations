@@ -1,9 +1,9 @@
-name: DQN Training (Weekly)
+name: DQN Training (Every 2 Hours)
 
 on:
   schedule:
-    # Run once a week on Sunday at 2:00 AM UTC
-    - cron: '0 2 * * 0'
+    # Run every 2 hours
+    - cron: '0 */2 * * *'
   workflow_dispatch:
     inputs:
       timesteps:
@@ -26,6 +26,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for proper rebasing
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -36,19 +38,42 @@ jobs:
         run: |
           pip install -r requirements.txt
 
+      - name: Download previous checkpoint (if available)
+        id: download-checkpoint
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: dqn-model-latest
+          path: checkpoint/
+
       - name: Run DQN Training
         run: |
+          CHECKPOINT_ARG=""
+          if [ -f "checkpoint/dqn_blackjack_counter.zip" ]; then
+            echo "Found checkpoint, continuing training..."
+            CHECKPOINT_ARG="--checkpoint checkpoint/dqn_blackjack_counter.zip"
+          else
+            echo "No checkpoint found, training from scratch..."
+          fi
           python run_dqn.py \
             --timesteps ${{ inputs.timesteps || '2000000' }} \
             --eval-hands ${{ inputs.eval_hands || '300000' }} \
-            --output-dir results
+            --output-dir results \
+            $CHECKPOINT_ARG
 
-      - name: Upload trained model
+      - name: Upload trained model (timestamped)
         uses: actions/upload-artifact@v4
         with:
-          name: dqn-model
+          name: dqn-model-${{ github.run_number }}
           path: results/dqn_blackjack_counter.zip
           retention-days: 30
+
+      - name: Upload trained model (latest)
+        uses: actions/upload-artifact@v4
+        with:
+          name: dqn-model-latest
+          path: results/dqn_blackjack_counter.zip
+          retention-days: 7
 
       - name: Upload evaluation results
         uses: actions/upload-artifact@v4
@@ -63,5 +88,8 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git add results/dqn_blackjack_counter.zip
           git add results/dqn_eval_results.pkl
-          git diff --staged --quiet || git commit -m "Add DQN training results (weekly run)"
-          git push
+          git diff --staged --quiet || (
+            git commit -m "Add DQN training results (run #${{ github.run_number }})"
+            git pull --rebase origin ${{ github.ref_name }}
+            git push
+          )
