@@ -128,6 +128,7 @@ def run_dqn(timesteps: int, eval_hands: int, output_dir: str, checkpoint: str = 
     model.learn(total_timesteps=timesteps)
     print("Training finished.\n")
 
+
     # Save the trained model
     os.makedirs(output_dir, exist_ok=True)
     model_path = os.path.join(output_dir, "dqn_blackjack_counter")
@@ -191,7 +192,104 @@ def run_dqn(timesteps: int, eval_hands: int, output_dir: str, checkpoint: str = 
         pickle.dump(merged, f)
     print(f"\nEvaluation results saved to {results_path}")
 
-    return merged
+    return merged, model  # Return model for extended evaluation
+
+
+def extended_evaluation(model, num_hands: int, output_dir: str):
+    """Run extended evaluation with detailed statistics."""
+    env = CardCountingBlackjackEnv(rules=RULES)
+    
+    print(f"\n{'='*80}")
+    print(f"EXTENDED EVALUATION ({num_hands:,} hands)")
+    print(f"{'='*80}\n")
+    
+    tc_buckets = defaultdict(lambda: [0.0, 0])
+    action_counts = defaultdict(int)
+    action_names = {0: 'Stand', 1: 'Hit', 2: 'Double', 3: 'Split', 4: 'Surrender'}
+    hand_rewards = []
+    obs, _ = env.reset()
+
+    for hand_idx in range(num_hands):
+        pre_tc = _pre_deal_tc(env)
+        tc_at_start = int(np.clip(round(pre_tc), -5, 5))
+
+        hand_reward = 0.0
+        done = False
+
+        while not done:
+            action, _ = model.predict(obs, deterministic=True)
+            action_counts[int(action)] += 1
+            obs, reward, terminated, truncated, _ = env.step(action)
+            hand_reward += reward
+            done = terminated or truncated
+
+        tc_buckets[tc_at_start][0] += hand_reward
+        tc_buckets[tc_at_start][1] += 1
+        hand_rewards.append(hand_reward)
+
+        if done:
+            obs, _ = env.reset()
+        
+        if (hand_idx + 1) % 50000 == 0:
+            current_ev = sum(hand_rewards) / len(hand_rewards)
+            print(f"  Hand {hand_idx + 1:>10,} | Running EV: {current_ev:>+8.5f}")
+
+    env.close()
+
+    # Calculate statistics
+    overall_ev = sum(hand_rewards) / len(hand_rewards)
+    std_dev = np.std(hand_rewards)
+    std_error = std_dev / np.sqrt(num_hands)
+
+    # Print detailed results
+    print(f"\n{'OVERALL RESULTS':-^80}")
+    print(f"Total hands: {num_hands:,}")
+    print(f"EV per hand: {overall_ev:+.5f}")
+    print(f"Std deviation: {std_dev:.5f}")
+    print(f"Std error: {std_error:.5f}")
+    print(f"95% CI: [{overall_ev - 1.96*std_error:+.5f}, {overall_ev + 1.96*std_error:+.5f}]")
+    
+    ev_pct = overall_ev * 100
+    ci_lower = (overall_ev - 1.96*std_error) * 100
+    ci_upper = (overall_ev + 1.96*std_error) * 100
+    print(f"House edge: {-ev_pct:+.3f}% (95% CI: [{-ci_upper:+.3f}%, {-ci_lower:+.3f}%])")
+
+    # Action distribution
+    print(f"\n{'ACTION DISTRIBUTION':-^80}")
+    total_actions = sum(action_counts.values())
+    for action_id in sorted(action_counts.keys()):
+        count = action_counts[action_id]
+        pct = (count / total_actions) * 100
+        action_name = action_names.get(action_id, f"Action {action_id}")
+        print(f"{action_name:<12} | {count:>12,} | {pct:>9.2f}%")
+
+    # Results by TC
+    print(f"\n{'RESULTS BY TRUE COUNT':-^80}")
+    print(f"{'TC':>4} | {'Hands':>10} | {'Total Reward':>12} | {'EV per Hand':>11} | {'House Edge':>11}")
+    print("-" * 80)
+    
+    for tc in sorted(tc_buckets.keys()):
+        rw, cnt = tc_buckets[tc]
+        tc_ev = rw / cnt if cnt > 0 else 0
+        tc_he = -tc_ev * 100
+        print(f"{tc:>+4d} | {cnt:>10,} | {rw:>+12.2f} | {tc_ev:>+11.5f} | {tc_he:>+10.3f}%")
+    
+    print("=" * 80)
+    
+    # Save extended results
+    ext_results_path = os.path.join(output_dir, "dqn_extended_eval.pkl")
+    ext_results = {
+        'overall_ev': overall_ev,
+        'std_error': std_error,
+        'tc_results': dict(tc_buckets),
+        'action_counts': dict(action_counts),
+        'num_hands': num_hands
+    }
+    with open(ext_results_path, 'wb') as f:
+        pickle.dump(ext_results, f)
+    print(f"\nExtended evaluation results saved to {ext_results_path}\n")
+
+    return ext_results
 
 
 # ─────────────────────────────────────────────
@@ -208,6 +306,12 @@ if __name__ == "__main__":
                         help="Directory to save results (default: results)")
     parser.add_argument("--checkpoint", type=str, default=None,
                         help="Path to checkpoint model to continue training from")
+    parser.add_argument("--extended-eval", type=int, default=None,
+                        help="Run extended evaluation with this many hands after training")
     args = parser.parse_args()
 
-    run_dqn(args.timesteps, args.eval_hands, args.output_dir, args.checkpoint)
+    merged, model = run_dqn(args.timesteps, args.eval_hands, args.output_dir, args.checkpoint)
+    
+    # Run extended evaluation if requested
+    if args.extended_eval:
+        extended_evaluation(model, args.extended_eval, args.output_dir)
