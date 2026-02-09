@@ -11,10 +11,20 @@ Usage:
     python run_dqn.py --output-dir results --timesteps 2000000 --eval-hands 300000
 """
 
+import sys
 import argparse
 import os
 import pickle
 import numpy as np
+
+# Compatibility fix for numpy versions
+# Handle numpy._core vs numpy.core naming differences
+try:
+    import numpy._core
+except ImportError:
+    import numpy.core
+    sys.modules['numpy._core'] = numpy.core
+
 from collections import defaultdict
 from stable_baselines3 import DQN
 from card_counting_blackjack_env import CardCountingBlackjackEnv

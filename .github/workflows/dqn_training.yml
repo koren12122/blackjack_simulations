@@ -57,7 +57,7 @@ jobs:
           fi
           python run_dqn.py \
             --timesteps ${{ inputs.timesteps || '2000000' }} \
-            --eval-hands ${{ inputs.eval_hands || '300000' }} \
+            --eval-hands ${{ inputs.eval_hands || '100000' }} \
             --output-dir results \
             $CHECKPOINT_ARG
 
