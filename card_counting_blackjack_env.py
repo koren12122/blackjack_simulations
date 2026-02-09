@@ -552,6 +552,7 @@ class CardCountingBlackjackEnv(gym.Env):
         
         total_reward = 0.0
         hand_results = []
+        dealer_has_bj = self._is_blackjack(self.dealer_hand)
         
         for h in self.completed_hands:
             if h['surrendered']:
@@ -562,7 +563,24 @@ class CardCountingBlackjackEnv(gym.Env):
             multiplier = 2.0 if h['doubled'] else 1.0
             pv = h['value']
             
-            if pv > 21:
+            # ── Dealer natural blackjack beats everything except player BJ ──
+            # Under ENHC (dealer_peeks=False) the player has already acted
+            # (possibly doubled/split) before discovering dealer BJ, and
+            # loses the FULL amount — no OBO protection.
+            if dealer_has_bj:
+                player_hand_is_bj = (
+                    len(h['hand']) == 2
+                    and self._get_hand_value(h['hand'])[0] == 21
+                    and not self.is_split_hand  # split 21 is not a natural
+                )
+                if player_hand_is_bj:
+                    r = 0.0
+                    outcome = 'push'
+                else:
+                    # ENHC: lose full bet (including doubled amount)
+                    r = -1.0 * multiplier
+                    outcome = 'dealer_blackjack'
+            elif pv > 21:
                 r = -1.0 * multiplier
                 outcome = 'bust'
             elif dealer_sum > 21:
